@@ -1,10 +1,15 @@
 from airflow import DAG
 from airflow.operators.postgres_operator import PostgresOperator
+
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import random
 import psycopg2
 from airflow.models import Variable
+import snowflake.connector
+import logging
+import pandas as pd
+from sqlalchemy import create_engine
 
 # Define default arguments
 default_args = {
@@ -12,11 +17,11 @@ default_args = {
     'depends_on_past': False,
     'start_date': datetime(2024, 3, 1),
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'retry_delay': timedelta(minutes=2),
 }
 
 # PostgreSQL connection ID
-POSTGRES_CONN_ID = 'heroku_postgres'
+POSTGRES_CONN_ID = 'aws_postgres'
 
 PG_HOST = Variable.get("PG_HOST")
 PG_DATABASE = Variable.get("PG_DATABASE")
@@ -25,6 +30,31 @@ PG_PASSWORD = Variable.get("PG_PASSWORD")
 PG_PORT = 5432
 
 
+SNOWFLAKE_USER = Variable.get("SNOWFLAKE_USER")
+SNOWFLAKE_PASSWORD = Variable.get("SNOWFLAKE_PASSWORD")
+SNOWFLAKE_ACCOUNT = Variable.get("SNOWFLAKE_ACCOUNT")
+SNOWFLAKE_WAREHOUSE = Variable.get("SNOWFLAKE_WAREHOUSE")
+SNOWFLAKE_DATABASE = Variable.get("SNOWFLAKE_DATABASE")
+SNOWFLAKE_SCHEMA = Variable.get("SNOWFLAKE_SCHEMA")
+SNOWFLAKE_URL = Variable.get("SNOWFLAKE_URL")
+
+SNOWFLAKE_CONFIG = {
+    "user": SNOWFLAKE_USER,
+    "password": SNOWFLAKE_PASSWORD,
+    "account":  SNOWFLAKE_ACCOUNT,  # "<YOUR_ACCOUNT>.snowflakecomputing.com",
+    "warehouse": SNOWFLAKE_WAREHOUSE,
+    "database": SNOWFLAKE_DATABASE,
+    "schema": SNOWFLAKE_SCHEMA
+}
+
+
+def run_snowflake_query():
+    engine = create_engine(
+        SNOWFLAKE_URL
+    )
+    with engine.connect() as conn:
+        result = pd.read_sql("SELECT CURRENT_TIMESTAMP;", conn)
+        print(result)
 
 # Function to insert customers
 def generate_customers():
@@ -98,7 +128,7 @@ def compute_analytics():
 with DAG(
     'simulate_store',
     default_args=default_args,
-    schedule_interval=timedelta(minutes=30),  # Runs every 30 minutes
+    schedule_interval=timedelta(minutes=5),  # Runs every 30 minutes
     catchup=False,
 ) as dag:
 
@@ -135,7 +165,11 @@ with DAG(
         task_id='compute_analytics',
         python_callable=compute_analytics,
     )
+    run_snowflake = PythonOperator(
+        task_id="run_snow_query",
+        python_callable=run_snowflake_query
+    )
+   
 
 
-
-    create_tables >> insert_customers >> insert_transactions >> compute_analytics_task
+    create_tables >> insert_customers >> insert_transactions >> compute_analytics_task >> run_snowflake

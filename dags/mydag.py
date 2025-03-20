@@ -127,8 +127,7 @@ with DAG(
 
     ingest_data = PythonOperator(
         task_id="ingest_data_to_postgres",
-        python_callable=ingest_data_to_postgres,
-        trigger_rule=TriggerRule.ALL_DONE  # Runs even if previous tasks fail
+        python_callable=ingest_data_to_postgres
     )
 
     upload_csv = PythonOperator(
