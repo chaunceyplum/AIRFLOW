@@ -17,7 +17,7 @@ default_args = {
     'depends_on_past': False,
     'start_date': datetime(2024, 3, 1),
     'retries': 1,
-    'retry_delay': timedelta(minutes=2),
+    # 'retry_delay': timedelta(minutes=2),
 }
 
 # PostgreSQL connection ID
@@ -65,7 +65,7 @@ def generate_customers():
         cur.execute("""
             INSERT INTO customers (name, email, created_at)
             VALUES (%s, %s, NOW())
-        """, (f'Customer_{random.randint(1000, 9999)}', f'user{random.randint(1000, 9999)}@example.com'))
+        """, (f'Customer_{random.randint(1, 999999999)}', f'user{random.randint(1000, 999999999)}@example.com'))
     
     conn.commit()
     cur.close()
@@ -83,7 +83,7 @@ def generate_transactions():
         cur.execute("""
             INSERT INTO transactions (customer_id, amount, created_at)
             VALUES (%s, %s, NOW())
-        """, (customer_id, round(random.uniform(5, 500), 2)))
+        """, (customer_id, round(random.uniform(5, 50000), 2)))
     
     conn.commit()
     cur.close()
@@ -128,7 +128,7 @@ def compute_analytics():
 with DAG(
     'simulate_store',
     default_args=default_args,
-    schedule_interval=timedelta(minutes=5),  # Runs every 30 minutes
+    schedule_interval=timedelta(minutes=60),  # Runs every 30 minutes
     catchup=False,
 ) as dag:
 

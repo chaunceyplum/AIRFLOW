@@ -14,7 +14,8 @@ seconds = dt.timestamp()
 
 # PostgreSQL connection details
 PG_HOST = Variable.get("PG_HOST")
-PG_DATABASE = Variable.get("PG_DATABASE")
+# PG_DATABASE = Variable.get("PG_DATABASE")
+PG_DATABASE = "crypto"
 PG_USER = Variable.get("PG_USER")
 PG_PASSWORD = Variable.get("PG_PASSWORD")
 PG_PORT = 5432
@@ -62,18 +63,18 @@ def ingest_data_to_postgres(ti):
         )
         cursor = conn.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS coincap_data (
+            CREATE TABLE IF NOT EXISTS assets (
                 id TEXT,
                 rank TEXT,
                 symbol TEXT,
                 name TEXT,
                 price_usd FLOAT,
                 timestamp TIMESTAMP, 
-                PRIMARY KEY(id, timestamp)
+                PRIMARY KEY(symbol, timestamp)
             );
         """)
         cursor.executemany(
-            "INSERT INTO coincap_data (id, rank, symbol, name, price_usd, timestamp) VALUES (%s, %s, %s, %s, %s, %s);",
+            "INSERT INTO assets (id, rank, symbol, name, price_usd, timestamp) VALUES (%s, %s, %s, %s, %s, %s);",
             processed_data
         )
         conn.commit()
@@ -95,6 +96,7 @@ def upload_to_s3(ti):
         writer = csv.writer(file)
         writer.writerow(["id", "rank", "symbol", "name", "price_usd", "timestamp"])
         writer.writerows(processed_data)
+        
 
     print(f"CSV saved locally at {LOCAL_FILE_PATH}")
 
