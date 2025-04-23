@@ -8,6 +8,8 @@ import csv
 import os
 from airflow.models import Variable
 from airflow.utils.trigger_rule import TriggerRule
+import pandas as pd
+from sqlalchemy import create_engine
 
 dt = datetime.today()  # Get timezone naive now
 seconds = dt.timestamp()
@@ -28,6 +30,45 @@ LOCAL_FILE_PATH = "coincap_data.csv"
 # AWS Credentials
 AWS_ACCESS_KEY_ID = Variable.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = Variable.get("AWS_SECRET_ACCESS_KEY")
+
+
+SNOWFLAKE_USER = Variable.get("SNOWFLAKE_USER")
+SNOWFLAKE_PASSWORD = Variable.get("SNOWFLAKE_PASSWORD")
+SNOWFLAKE_ACCOUNT = Variable.get("SNOWFLAKE_ACCOUNT")
+SNOWFLAKE_WAREHOUSE = Variable.get("SNOWFLAKE_WAREHOUSE")
+SNOWFLAKE_DATABASE = Variable.get("SNOWFLAKE_DATABASE")
+SNOWFLAKE_SCHEMA = Variable.get("SNOWFLAKE_SCHEMA")
+SNOWFLAKE_URL = Variable.get("SNOWFLAKE_URL")
+
+SNOWFLAKE_CONFIG = {
+    "user": SNOWFLAKE_USER,
+    "password": SNOWFLAKE_PASSWORD,
+    "account":  SNOWFLAKE_ACCOUNT,  # "<YOUR_ACCOUNT>.snowflakecomputing.com",
+    "warehouse": SNOWFLAKE_WAREHOUSE,
+    "database": SNOWFLAKE_DATABASE,
+    "schema": SNOWFLAKE_SCHEMA
+}
+
+
+def run_snowflake_query(ti):
+    processed_data = ti.xcom_pull(task_ids="process_crypto_data", key="processed_data")
+    engine = create_engine(
+        SNOWFLAKE_URL
+    )
+    with engine.connect() as conn:
+        create_table = pd.read_sql("""
+            CREATE TABLE IF NOT EXISTS assets (
+                id TEXT,
+                rank TEXT,
+                symbol TEXT,
+                name TEXT,
+                price_usd FLOAT,
+                timestamp TIMESTAMP, 
+                PRIMARY KEY(symbol, timestamp)
+            );
+        """, conn)
+        print(create_table)
+        insert_assets = pd.read_sq()
 
 
 def fetch_coincap_data(ti):
