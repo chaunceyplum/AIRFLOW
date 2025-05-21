@@ -15,12 +15,9 @@ import boto3
 import csv
 import os
 import requests
-# from faker import Faker
-# import random
+import uuid
+import json
 
-# fake = Faker()
-
-# Define default arguments
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -87,24 +84,26 @@ def run_snowflake_query():
 
 # Function to insert customers
 def generate_customers(ti):
-    conn = psycopg2.connect(f"dbname='{PG_DATABASE}' user='{PG_USER}' host='{PG_HOST}' password='{PG_PASSWORD}'")
-    cur = conn.cursor()
-    customer_arr = []
-    for _ in range(10):  # Generate 10 customers per run
-        name_var = f'Customer_{random.randint(1, 999999999)}'
-        user_var = f'user{random.randint(1000, 999999999)}@example.com'
-        now = str(datetime.now())
-        cur.execute("""
-            INSERT INTO customers (name, email, created_at)
-            VALUES (%s, %s, NOW())
-        """, (name_var, user_var))
-        temp_user = {"name":f'{name_var}', "email":f'{user_var}', "created_at":f'{now}'}
-        customer_arr.append(temp_user)
     
-    conn.commit()
-    cur.close()
-    conn.close()
-    ti.xcom_push(key="processed_data", value=customer_arr)
+    new_customers = requests.get("https://api.mockaroo.com/api/generate.json?key=ab78c110")
+    if new_customers.status_code == 200 and new_customers.text.strip():
+        data = new_customers.json()
+    else:
+        raise ValueError(f"Mockaroo returned an error or empty response: {new_customers.status_code}, body: {new_customers.text}")
+
+
+    with psycopg2.connect(f"dbname='{PG_DATABASE}' user='{PG_USER}' host='{PG_HOST}' password='{PG_PASSWORD}'") as conn:
+        with conn.cursor() as cur:
+            for row in data:
+                    cur.execute(
+                        """
+                        INSERT INTO customers (customer_id, first_name, last_name, gender, email, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (row['customer_id'],row['first_name'], row['last_name'], row['gender'], row['email'], row['created_at'])
+                    )
+  
+    ti.xcom_push(key="processed_data", value=data)
 
 
 # Function to insert transactions
@@ -237,7 +236,7 @@ with DAG(
         sql="""
 
         CREATE TABLE IF NOT EXISTS customers (
-            customer_id SERIAL PRIMARY KEY,
+            customer_id VARCHAR(255) PRIMARY KEY,
             first_name VARCHAR(255),
             last_name VARCHAR(255),
             gender VARCHAR(255),
@@ -246,17 +245,17 @@ with DAG(
         );
         
         CREATE TABLE IF NOT EXISTS transactions (
-            transaction_id SERIAL PRIMARY KEY,
-            customer_id INT REFERENCES customers(customer_id),
-            product_id INT REFERENCES products(product_id),
-            location_id INT REFERENCES locations(location_id),
+            transaction_id Varchar(255) PRIMARY KEY,
+            customer_id VARCHAR(255) REFERENCES customers(customer_id),
+            product_id VARCHAR(255) REFERENCES products(product_id),
+            location_id VARCHAR(255) REFERENCES locations(location_id),
             amount DECIMAL(10,2),
-            created_at TIMESTAMP DEFAULT NOW(),
+            created_at TIMESTAMP DEFAULT NOW()
 
         );
 
         CREATE TABLE IF NOT EXISTS products (
-            product_id SERIAL PRIMARY KEY,
+            product_id VARCHAR(255) PRIMARY KEY,
             product_name VARCHAR(255),
             product_amount DECIMAL(10,2),
             product_description VARCHAR(255),
@@ -265,7 +264,7 @@ with DAG(
         );
 
         CREATE TABLE IF NOT EXISTS locations (
-            location_id SERIAL PRIMARY KEY,
+            location_id VARCHAR(255) PRIMARY KEY,
             address VARCHAR(255),
             city VARCHAR(255),
             zip_code VARCHAR(255),
@@ -274,7 +273,7 @@ with DAG(
 
         );
 
-        
+
 
         """
     )
