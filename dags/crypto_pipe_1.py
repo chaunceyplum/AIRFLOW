@@ -222,6 +222,7 @@ def data_process(ti):
 #     os.remove(LOCAL_FILE_PATH)
 #     print("Removed staged file")
 
+
 with DAG(
     "crypto_pipe_1",
     start_date=datetime(2024, 2, 1),
