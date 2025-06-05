@@ -104,6 +104,20 @@ def grab_product_data(ti):
 
         # Push to XCom as JSON-safe object
         ti.xcom_push(key="product_df", value=product_df.to_dict(orient='records'))
+        # products = product_df.to_dict(orient='records')
+        # for tx in products:
+        #     cur.execute("""
+        #         INSERT INTO products (product_id, product_name, product_description, product_amount, created_at)
+        #         VALUES (%s, %s, %s, %s, %s, )
+        #         ON CONFLICT (product_id) DO NOTHING;
+        #     """, (
+        #         tx['fk_transaction_id'],
+        #         tx['created_at'],
+        #         tx['fk_product_id'],
+        #         tx['order_id'],
+        #         tx['quantity'],
+        #         tx['unit_price']
+        #     ))
 
     except requests.RequestException as e:
         logging.error(f"Request to {url} failed: {e}")
@@ -158,7 +172,6 @@ def merge_data(ti):
 
 def ingest_transactions(ti):
     transactions = ti.xcom_pull(task_ids='merge_customer_and_product_data', key='transactions')
-    orderItem = ti.xcom_pull(task_ids='merge_customer_and_product_data', key='order_items')
 
     for tx in transactions:
         cur.execute("""
@@ -179,11 +192,11 @@ def ingest_order_items(ti):
         cur.execute("""
             INSERT INTO orderitem (created_at, fk_product_id, fk_transaction_id, order_id, quantity, unit_price)
             VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (transaction_id) DO NOTHING;
+            ON CONFLICT (order_id) DO NOTHING;
         """, (
-            tx['fk_transaction_id'],
             tx['created_at'],
             tx['fk_product_id'],
+            tx['fk_transaction_id'],
             tx['order_id'],
             tx['quantity'],
             tx['unit_price']
@@ -222,4 +235,4 @@ with DAG(
         python_callable=ingest_order_items
     )
 
-    [grab_cust_data, grab_prod_data] >> merge_task >> [ingest_order_item, ingest_transaction]
+    [grab_cust_data, grab_prod_data] >> merge_task >> [ingest_transaction, ingest_order_item]
