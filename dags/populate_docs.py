@@ -104,24 +104,25 @@ def grab_product_data(ti):
 
         # Push to XCom as JSON-safe object
         ti.xcom_push(key="product_df", value=product_df.to_dict(orient='records'))
-        # products = product_df.to_dict(orient='records')
-        # for tx in products:
-        #     cur.execute("""
-        #         INSERT INTO products (product_id, product_name, product_description, product_amount, created_at)
-        #         VALUES (%s, %s, %s, %s, %s, )
-        #         ON CONFLICT (product_id) DO NOTHING;
-        #     """, (
-        #         tx['fk_transaction_id'],
-        #         tx['created_at'],
-        #         tx['fk_product_id'],
-        #         tx['order_id'],
-        #         tx['quantity'],
-        #         tx['unit_price']
-        #     ))
-
+   
     except requests.RequestException as e:
         logging.error(f"Request to {url} failed: {e}")
         raise e
+def ingest_product(ti):
+    product_data = ti.xcom_pull(task_ids='grab_product_data', key='product_df')
+    for tx in product_data:
+        cur.execute("""
+            INSERT INTO product (product_id, product_name, price, product_description )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (product_id) DO NOTHING;
+        """, (
+            tx['product_id'],
+            tx['product_name'],
+            tx['product_amount'],
+            # tx['in_stock'],
+            tx["product_description"]
+        ))
+        conn.commit()
 
 def merge_data(ti):
 
@@ -148,11 +149,11 @@ def merge_data(ti):
 
                 order_item = {
                     "order_id": str(uuid.uuid4()),
-                    "quantity": quantity,
+                    "number_of_products": quantity,
                     "fk_product_id": product["product_id"],
                     "created_at": transaction_time,
                     "fk_transaction_id": transaction_id,
-                    "unit_price": unit_price,
+                    "price": unit_price,
                 }
                 order_items.append(order_item)
                 total_price += item_total
@@ -184,13 +185,14 @@ def ingest_transactions(ti):
             tx['fk_person_id'],
             tx['total_price']
         ))
+        conn.commit()
 
 def ingest_order_items(ti):
     orderItem = ti.xcom_pull(task_ids='merge_customer_and_product_data', key='order_items')
 
     for tx in orderItem:
         cur.execute("""
-            INSERT INTO orderitem (created_at, fk_product_id, fk_transaction_id, order_id, quantity, unit_price)
+            INSERT INTO orderitem (created_at, fk_product_id, fk_transaction_id, order_id, number_of_products, price)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (order_id) DO NOTHING;
         """, (
@@ -198,9 +200,10 @@ def ingest_order_items(ti):
             tx['fk_product_id'],
             tx['fk_transaction_id'],
             tx['order_id'],
-            tx['quantity'],
-            tx['unit_price']
+            tx['number_of_products'],
+            tx['price']
         ))
+        conn.commit()
 
 
 with DAG(
@@ -220,6 +223,11 @@ with DAG(
         python_callable=grab_product_data,
     )
 
+    ingest_products = PythonOperator(
+        task_id='ingest_product',
+        python_callable=ingest_product,
+    )
+
     merge_task = PythonOperator(
         task_id='merge_customer_and_product_data',
         python_callable=merge_data,
@@ -235,4 +243,4 @@ with DAG(
         python_callable=ingest_order_items
     )
 
-    [grab_cust_data, grab_prod_data] >> merge_task >> [ingest_transaction, ingest_order_item]
+    [grab_cust_data, grab_prod_data >> ingest_products]  >> merge_task >> ingest_transaction >> ingest_order_item

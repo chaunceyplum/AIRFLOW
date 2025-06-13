@@ -5,3 +5,5 @@ RUN pip install --no-cache-dir \
     dbt-postgres \
     faker \
     pg8000
+
+RUN airflow db init 
