@@ -50,22 +50,22 @@ LOCAL_CUSTOMER_FILE_PATH = "CUSTOMER.csv"
 AWS_ACCESS_KEY_ID = Variable.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = Variable.get("AWS_SECRET_ACCESS_KEY")
 
-SNOWFLAKE_USER = Variable.get("SNOWFLAKE_USER")
-SNOWFLAKE_PASSWORD = Variable.get("SNOWFLAKE_PASSWORD")
-SNOWFLAKE_ACCOUNT = Variable.get("SNOWFLAKE_ACCOUNT")
-SNOWFLAKE_WAREHOUSE = Variable.get("SNOWFLAKE_WAREHOUSE")
-SNOWFLAKE_DATABASE = Variable.get("SNOWFLAKE_DATABASE")
-SNOWFLAKE_SCHEMA = Variable.get("SNOWFLAKE_SCHEMA")
-SNOWFLAKE_URL = Variable.get("SNOWFLAKE_URL")
+# SNOWFLAKE_USER = Variable.get("SNOWFLAKE_USER")
+# SNOWFLAKE_PASSWORD = Variable.get("SNOWFLAKE_PASSWORD")
+# SNOWFLAKE_ACCOUNT = Variable.get("SNOWFLAKE_ACCOUNT")
+# SNOWFLAKE_WAREHOUSE = Variable.get("SNOWFLAKE_WAREHOUSE")
+# SNOWFLAKE_DATABASE = Variable.get("SNOWFLAKE_DATABASE")
+# SNOWFLAKE_SCHEMA = Variable.get("SNOWFLAKE_SCHEMA")
+# SNOWFLAKE_URL = Variable.get("SNOWFLAKE_URL")
 
-SNOWFLAKE_CONFIG = {
-    "user": SNOWFLAKE_USER,
-    "password": SNOWFLAKE_PASSWORD,
-    "account":  SNOWFLAKE_ACCOUNT,  # "<YOUR_ACCOUNT>.snowflakecomputing.com",
-    "warehouse": SNOWFLAKE_WAREHOUSE,
-    "database": SNOWFLAKE_DATABASE,
-    "schema": SNOWFLAKE_SCHEMA
-}
+# SNOWFLAKE_CONFIG = {
+#     "user": SNOWFLAKE_USER,
+#     "password": SNOWFLAKE_PASSWORD,
+#     "account":  SNOWFLAKE_ACCOUNT,  # "<YOUR_ACCOUNT>.snowflakecomputing.com",
+#     "warehouse": SNOWFLAKE_WAREHOUSE,
+#     "database": SNOWFLAKE_DATABASE,
+#     "schema": SNOWFLAKE_SCHEMA
+# }
 
 conn = psycopg2.connect(f"dbname='{PG_DATABASE}' user='{PG_USER}' host='{PG_HOST}' password='{PG_PASSWORD}'")
 cur = conn.cursor()
@@ -85,7 +85,7 @@ def grab_customer_data(ti):
 
 
 def grab_product_data(ti):
-    url = "https://api.mockaroo.com/api/f3aae820?count=1000&key=ab78c110"
+    url = "https://api.mockaroo.com/api/f3aae820?count=10&key=ab78c110"
 
     try:
         response = requests.get(url)
@@ -209,7 +209,7 @@ def ingest_order_items(ti):
 with DAG(
     'populate_oltp',
     default_args=default_args,
-    schedule_interval=timedelta(days=1),
+    schedule_interval=timedelta(hours=1),
     catchup=False,
 ) as dag:
 

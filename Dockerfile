@@ -6,4 +6,7 @@ RUN pip install --no-cache-dir \
     faker \
     pg8000
 
+RUN pip install --no-cache-dir "pydantic>=2.0,<3.0" "pyiceberg>=0.5.0" mypy-boto3-glue
+
+
 RUN airflow db init 
